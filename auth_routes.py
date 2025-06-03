@@ -1,6 +1,7 @@
 from fastapi import APIRouter,Depends
 from dependecies import pegar_sessao
 from models import db, Usuario
+from main import bcrypt_context
 
 
 auth_router = APIRouter(prefix="/auth",tags=["auth"])
@@ -15,8 +16,12 @@ async def registro(nome: str, email: str, senha: str, session=Depends(pegar_sess
     if usuario:
         return {"message": "Email já cadastrado"}
     # Verifica se o email já está cadastrado
+# ...existing code...
     else:
-        novo_usuario = Usuario(nome=nome, email=email, senha=senha)
-        session.add(novo_usuario)
-        session.commit()
-        return {"message": "Usuário criado com sucesso", "email": email}
+        senha_criptografada = bcrypt_context.hash(senha)
+    # Criptografa a senha
+    novo_usuario = Usuario(nome=nome, email=email, senha=senha_criptografada)
+    session.add(novo_usuario)
+    session.commit()
+    return {"message": "Usuário criado com sucesso", "email": email}
+# ...existing code...
