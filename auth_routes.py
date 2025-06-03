@@ -1,7 +1,9 @@
-from fastapi import APIRouter,Depends
+from fastapi import APIRouter,Depends, HTTPException
 from dependecies import pegar_sessao
 from models import db, Usuario
 from main import bcrypt_context
+from schemas import UsuarioSchema
+from sqlalchemy.orm import Session
 
 
 auth_router = APIRouter(prefix="/auth",tags=["auth"])
@@ -11,17 +13,20 @@ async def autenticar():
     return {"message": "Voce está autenticado", "autenticado": False}
 
 @auth_router.post("/criar_conta") 
-async def registro(nome: str, email: str, senha: str, session=Depends(pegar_sessao)):
-    usuario = session.query(Usuario).filter(Usuario.email == email).first()
+async def registro(usuario_schema:UsuarioSchema, session=Depends(pegar_sessao)):
+    usuario = session.query(Usuario).filter(Usuario.email == usuario_schema.email).first()
     if usuario:
-        return {"message": "Email já cadastrado"}
-    # Verifica se o email já está cadastrado
-# ...existing code...
-    else:
-        senha_criptografada = bcrypt_context.hash(senha)
-    # Criptografa a senha
-    novo_usuario = Usuario(nome=nome, email=email, senha=senha_criptografada)
+        raise HTTPException(status_code=400, detail="Email já cadastrado")
+    # Não precisa de else aqui
+    senha_criptografada = bcrypt_context.hash(usuario_schema.senha)
+    novo_usuario = Usuario(
+        nome=usuario_schema.nome,
+        email=usuario_schema.email,
+        senha=senha_criptografada,
+        ativo=usuario_schema.ativo,
+        telefone=usuario_schema.telefone,
+        admin=usuario_schema.admin
+    )
     session.add(novo_usuario)
     session.commit()
-    return {"message": "Usuário criado com sucesso", "email": email}
-# ...existing code...
+    return {"message": "Usuário criado com sucesso", "email": usuario_schema.email}
