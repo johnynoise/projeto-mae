@@ -4,9 +4,14 @@ from models import db, Usuario
 from main import bcrypt_context
 from schemas import UsuarioSchema
 from sqlalchemy.orm import Session
+from schemas import loginSchema
 
 
 auth_router = APIRouter(prefix="/auth",tags=["auth"])
+
+def criar_token(id_usuario):
+    token = f"token_{id_usuario}"
+    return token
 
 @auth_router.get("/")
 async def autenticar():
@@ -30,3 +35,13 @@ async def registro(usuario_schema:UsuarioSchema, session=Depends(pegar_sessao)):
     session.add(novo_usuario)
     session.commit()
     return {"message": "Usuário criado com sucesso", "email": usuario_schema.email}
+
+@auth_router.post("/login")
+async def login(login_schema: loginSchema, session: Session = Depends(pegar_sessao)):
+    usuario = session.query(Usuario).filter(Usuario.email == login_schema.email).first()
+    if not usuario:
+        raise HTTPException(status_code=400, detail="Usuário não encontrado")
+    if not bcrypt_context.verify(login_schema.senha, usuario.senha):
+        raise HTTPException(status_code=400, detail="Senha incorreta")
+    access_token = criar_token(usuario.id)
+    return {"access_token": access_token, "token_type": "bearer"}
