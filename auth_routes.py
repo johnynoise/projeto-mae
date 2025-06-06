@@ -1,15 +1,28 @@
 from fastapi import APIRouter,Depends, HTTPException
 from dependecies import pegar_sessao
 from models import db, Usuario
-from main import bcrypt_context
+from main import bcrypt_context, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES, SECRET_KEY
 from schemas import UsuarioSchema
 from sqlalchemy.orm import Session
 from schemas import loginSchema
+from jose import jwt, JWTError
+from datetime import datetime, timedelta, timezone
+
 
 
 auth_router = APIRouter(prefix="/auth",tags=["auth"])
 
 def criar_token(id_usuario):
+    data_expiracao = datetime.now(timezone.utc) + timedelta(ACCESS_TOKEN_EXPIRE_MINUTES)
+    dic_info = {
+        "sub": id_usuario,
+        "data_expiracao": data_expiracao.isoformat(),
+    }
+    jwt_codificado = jwt.encode(dic_info,SECRET_KEY, ALGORITHM)
+    return jwt_codificado
+    #JWT
+    #id_usuario
+    #data_expiracao
     token = f"token_{id_usuario}"
     return token
 
@@ -20,6 +33,7 @@ def autenticar_usuario(email, senha, session):
     elif not bcrypt_context.verify(senha, usuario.senha):
         return False
     return usuario
+ 
 @auth_router.get("/")
 async def autenticar():
     return {"message": "Voce está autenticado", "autenticado": False}
