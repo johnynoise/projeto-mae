@@ -12,19 +12,20 @@ from datetime import datetime, timedelta, timezone
 
 auth_router = APIRouter(prefix="/auth",tags=["auth"])
 
-def criar_token(id_usuario):
-    data_expiracao = datetime.now(timezone.utc) + timedelta(ACCESS_TOKEN_EXPIRE_MINUTES)
+def criar_token(id_usuario, duracao_token=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)):
+    data_expiracao = datetime.now(timezone.utc) + duracao_token
     dic_info = {
         "sub": id_usuario,
         "data_expiracao": data_expiracao.isoformat(),
     }
     jwt_codificado = jwt.encode(dic_info,SECRET_KEY, ALGORITHM)
     return jwt_codificado
-    #JWT
-    #id_usuario
-    #data_expiracao
-    token = f"token_{id_usuario}"
-    return token
+
+def verificar_token(token, session: Session = Depends(pegar_sessao)):
+    #verifica se o token é válido
+    #extrair o id do usuário do token
+    Usuario = session.query(Usuario).filter(Usuario.id == 1).first()
+    return Usuario
 
 def autenticar_usuario(email, senha, session):
     usuario = session.query(Usuario).filter(Usuario.email==email).first()
@@ -65,4 +66,13 @@ async def login(login_schema: loginSchema, session: Session = Depends(pegar_sess
     if not bcrypt_context.verify(login_schema.senha, usuario.senha):
         raise HTTPException(status_code=400, detail="Senha incorreta")
     access_token = criar_token(usuario.id)
-    return {"access_token": access_token, "token_type": "bearer"}
+    refresh_token = criar_token(usuario.id, duracao_token=timedelta(days=7)) 
+    return {"access_token": access_token,
+            "refresh_token":refresh_token,
+            "token_type": "bearer"}
+    
+@auth_router.get("/verificar_token")
+async def atualizar_token(token: str, session: Session = Depends(pegar_sessao)):
+    usuario = verificar_token(token, session)
+    access_token = criar_token(criar_token(usuario.id))
+    return {"access_token": access_token, "token_type": "bearer", "usuario_id": usuario.id}
