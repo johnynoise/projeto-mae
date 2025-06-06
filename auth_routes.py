@@ -13,6 +13,13 @@ def criar_token(id_usuario):
     token = f"token_{id_usuario}"
     return token
 
+def autenticar_usuario(email, senha, session):
+    usuario = session.query(Usuario).filter(Usuario.email==email).first()
+    if not usuario:
+        return False
+    elif not bcrypt_context.verify(senha, usuario.senha):
+        return False
+    return usuario
 @auth_router.get("/")
 async def autenticar():
     return {"message": "Voce está autenticado", "autenticado": False}
@@ -38,9 +45,9 @@ async def registro(usuario_schema:UsuarioSchema, session=Depends(pegar_sessao)):
 
 @auth_router.post("/login")
 async def login(login_schema: loginSchema, session: Session = Depends(pegar_sessao)):
-    usuario = session.query(Usuario).filter(Usuario.email == login_schema.email).first()
+    usuario = autenticar_usuario(login_schema.email, login_schema.senha, session)
     if not usuario:
-        raise HTTPException(status_code=400, detail="Usuário não encontrado")
+        raise HTTPException(status_code=400, detail="Usuário não encontrado ou credenciais inválidas")
     if not bcrypt_context.verify(login_schema.senha, usuario.senha):
         raise HTTPException(status_code=400, detail="Senha incorreta")
     access_token = criar_token(usuario.id)
